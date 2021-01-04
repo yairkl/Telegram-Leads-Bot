@@ -1,5 +1,5 @@
 # Telegram-Leads-Bot
-Before working with Telegram’s API, you need to get your own API ID and hash:
+Before working with Telegram-Leads-Bot, you need to configure your account in userKeys.py:
 
 1. [Login to your Telegram account](https://my.telegram.org/) with the phone number of the developer account to use.
 Click under API Development tools.
@@ -10,4 +10,4 @@ Click under API Development tools.
 6. add your user id to the admins list so you can control the bot
 7. create new group and add your telegram user to it, set the links_group field in userKeys.py to be this group id
 
-you are ready to go!, now run both scraper.py and ConversationBot.py
+you are ready to go! now run both scraper.py and ConversationBot.py
