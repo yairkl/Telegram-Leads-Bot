@@ -4,3 +4,4 @@ TestBot.py
 users.db
 leads.csv
 LeadsBor.py
+*.session

@@ -162,6 +162,8 @@ def addUsers(update: Update, context: CallbackContext) -> int:
 def addUsersFromUrl(update: Update, context: CallbackContext) -> int:
     message = update.message.text if update.message.text else ""
     sendMessage(userKeys.links_group,message)
+    update.message.reply_text(f'users added!')
+
     return ADMIN
 
 
