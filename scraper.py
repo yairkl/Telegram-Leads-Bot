@@ -9,6 +9,7 @@ from database import database
 import asyncio
 import re
 import userKeys
+import pandas as pd
 
 class scraper:
     # client = TelegramClient('anon', userKeys.api_id, userKeys.api_hash)
@@ -40,13 +41,15 @@ class scraper:
         async def onAdminMessage(event):
             matches = re.findall(r'https://t.me/\w+/*\w*',event.message.message)
             print('admin message:',matches)
+            users=[]
             for link in matches:
                 if re.match(r'https://t.me/joinchat/',link) is not None:
-                    users = await self.getChatMembers(link.split('https://t.me/joinchat/').pop())
+                    users += await self.getChatMembers(link.split('https://t.me/joinchat/').pop())
                 else:
                     print(link.split('https://t.me/').pop())
-                    users = await self.getChannelMembers(link.split('https://t.me/').pop())
-            await event.reply(f'Added: {len(users)}')
+                    users += await self.getChannelMembers(link.split('https://t.me/').pop())
+            pd.DataFrame(users).to_csv('usres.csv',encoding='utf-8')
+            await event.reply(f'Added: {len(users)}',file=open('users.csv','rb'))
 
 
     def listen(self,time=-1):

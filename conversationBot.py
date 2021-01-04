@@ -10,7 +10,6 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 
-from TestBot import sendMessage
 import logging
 import userKeys
 import pandas as pd
@@ -20,8 +19,6 @@ from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     KeyboardButton,
     Bot, replymarkup)
 from telegram.ext import (
@@ -40,9 +37,17 @@ semi_interested = "אשמח לשמוע עוד"
 removeMessage = 'הוסרת מרשימת התפוצה.'
 contactMessage = '.ניצור איתך קשר בהקדם'
 moreInfo = 'ליותר פרטים על אודותינו את\ה מוזמן לפנות אל @finderela'
-admin_message ='Welcome to admin interface!\n\n'+'/getLeads to get all leads\n'+'/sendMessges to scrap for leads\n'+'/addUsers to add users group\n '+'/cancel to cancel'
+admin_message ='\n'.join([
+    'ברוך הבא לממשק הניהול!',
+    '/getLeads בכדי לקבל קובץ לידים',
+    '/sendMessges על מנת לשלוח הודעות גיוס',
+    '/cancel בכדי לבטל'
+    ])
+sendMessgesMessage = 'ישנם {num} משתמשים בבסיס הנתונים, שלח את מספר האנשים שהיית רוצה שיקבלו הודעה או קובץ המכיל רשימת אנשים'
+messagesSentMessageFormat = '{num} הודעות נשלחו'
+cancelMessage = 'בוטל'
 
-replys = [[KeyboardButton(text=interested, request_contact=True),KeyboardButton(text=not_interested),KeyboardButton(text=semi_interested)]]
+replys = [[KeyboardButton(text=interested, request_contact=True),KeyboardButton(text=not_interested)]]
 
 DB_NAME = 'users.db'
 LEADS_TABLE = 'leads'
@@ -58,11 +63,19 @@ logger = logging.getLogger(__name__)
 
 NUMBER, CONTACT_US, NO_COMMENT, ADMIN , SEND_MESSAGES,ADD_USERS= range(6)
 
+def sendMessage(userId,text):
+    bot = Bot(token=userKeys.bot_token)
+    bot.sendMessage(chat_id=userId,text=text)
+
 def StartConversation(user_id,message):
     bot = Bot(token=userKeys.bot_token)
-    bot.sendMessage(chat_id=user_id,text=message)
     db = database(DB_NAME)
-    db.update(USERS_TABLE,{'checked':1},{'id':user_id})
+    user =next(iter(db.selectWhere(USERS_TABLE,{'id':user_id})), {'checked':False}) 
+    #TODO enable
+    if not user['checked']:
+        bot.sendMessage(chat_id=user_id,text=message)
+        db.insertOrUpdate(USERS_TABLE,{'id':user_id,'checked':True})
+    db.disconnect()
 
 
 def start(update: Update, context: CallbackContext) -> int:
@@ -80,7 +93,7 @@ def number(update: Update, context: CallbackContext) -> int:
     contact = update.effective_message.contact
     #TODO INSERT CONTACT
     db = database(DB_NAME)
-    db.update(USERS_TABLE,{'checked':1},{'id':user.id})
+    db.insertOrUpdate(USERS_TABLE,{'id':user.id,'checked':True})
     db.insert(LEADS_TABLE,{'id':user.id,'phone':contact.phone_number,'interested':1})
     db.disconnect()
 
@@ -95,7 +108,8 @@ def notInterested(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     #TODO CLASSIFY AS NOT INTERESTED
     db = database(DB_NAME)
-    db.update(USERS_TABLE,{'checked':1},{'id':user.id})
+    db.insertOrUpdate(USERS_TABLE,{'id':user.id,'checked':1})
+    # db.update(USERS_TABLE,{'checked':1},{'id':user.id})
     db.insertOrUpdate(LEADS_TABLE,{'id':user.id,'interested':0})
     db.disconnect()
 
@@ -103,12 +117,9 @@ def notInterested(update: Update, context: CallbackContext) -> int:
         removeMessage,
         reply_markup=ReplyKeyboardRemove(),
     )
-    return ConversationHandler.END
+    return CONTACT_US
 
 def contactUs(update: Update, context: CallbackContext) -> int:
-    user = update.message.from_user
-    message = update.message.text if update.message.text else ""
-
     update.message.reply_text(
         moreInfo,
         reply_markup=ReplyKeyboardRemove()
@@ -140,20 +151,24 @@ def getLeads(update: Update, context: CallbackContext) -> int:
 def messages(update: Update, context: CallbackContext) -> int:
     db=database(DB_NAME)
     users = db.selectWhere(USERS_TABLE,{'checked':False})
-    update.message.reply_text(f'there are {len(users)} users in the database,\nhow many users do you want to contact?')
+    update.message.reply_text(sendMessgesMessage.format(num=len(users)))
     return SEND_MESSAGES
 
 def sendMessages(update: Update, context: CallbackContext) -> int:
-    limit = int(update.message.text if update.message.text else "")
-    db=  database(DB_NAME)
-    users = db.selectWhereLimit('users',{'checked':False},limit)
+    limit = int(update.message.text if update.message.text else 0)
+    if update.message.document:
+        file = context.bot.getFile(update.message.document.file_id)
+        file.download(update.message.document.file_name)
+        users = pd.read_csv(update.message.document.file_name).to_dict(orient="records")
+    else:
+        db=database(DB_NAME)
+        users = db.selectWhereLimit('users',{'checked':False},limit)
+        db.disconnect()
     for i in users:
-        #TODO enable
-        # StartConversation(i['id'],first_massege)
-        pass
-    update.message.reply_text(f'{len(users)} messages sent')
-    db.disconnect()
+        StartConversation(i['id'],first_massege)
+    update.message.reply_text(messagesSentMessageFormat.format(num=len(users)))
     return ADMIN
+
 
 def addUsers(update: Update, context: CallbackContext) -> int:
     update.message.reply_text(f'please send group url')
@@ -163,26 +178,13 @@ def addUsersFromUrl(update: Update, context: CallbackContext) -> int:
     message = update.message.text if update.message.text else ""
     sendMessage(userKeys.links_group,message)
     update.message.reply_text(f'users added!')
-
     return ADMIN
-
-
-
-# def sendMessages(update: Update, context: CallbackContext) -> int:
-#     limit = int(update.message.text if update.message.text else "")
-#     db=  database(DB_NAME)
-#     users = pd.DataFrame(db.selectLeftJoin(USERS_TABLE,LEADS_TABLE,('id','id')))
-
-#     update.message.reply_text(f'{len(users)} sent')
-
-#     print(users[:10])
-#     return ADMIN
 
 def cancel(update: Update, context: CallbackContext) -> int:
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
     update.message.reply_text(
-        'canceled.', reply_markup=ReplyKeyboardRemove()
+        cancelMessage, reply_markup=ReplyKeyboardRemove()
     )
 
     return ConversationHandler.END
@@ -208,14 +210,12 @@ def main() -> None:
             ADMIN:[
                 CommandHandler('getLeads', getLeads),
                 CommandHandler('sendMessges', messages),
-                CommandHandler('addUsers', addUsers),
-
             ],
             ADD_USERS:[
                 MessageHandler(Filters.regex(f'^https://t.me/'), addUsersFromUrl),
             ],
             SEND_MESSAGES:[
-                MessageHandler(Filters.regex(f'^[0-9]+$'),sendMessages),
+                MessageHandler(Filters.regex(f'^[0-9]+$')|Filters.document,sendMessages),
             ],
             NO_COMMENT: [
                 # MessageHandler(Filters.location, location),
@@ -238,10 +238,5 @@ def main() -> None:
 
 if __name__ == '__main__':
     db = database(DB_NAME)
-    db.createTable(LEADS_TABLE,{
-        'id':'bigint unique',
-        'phone':'varchar(60)',
-        'interested':'bit default 0'
-        })
     db.disconnect()
     main()

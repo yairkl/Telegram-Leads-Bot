@@ -7,6 +7,20 @@ class database:
     def __init__(self,dbName):
         self.connection = sqlite3.connect(dbName)
         self.cursor=self.connection.cursor()
+        self.createTable('users',{
+            'id':'int unique',
+            'username':'varchar(60)',
+            'firstName':'varchar(60)',
+            'lastName':'varchar(60)',
+            'checked':'bit default 0'
+            })
+        self.createTable('leads',{
+            'id':'bigint unique',
+            'phone':'varchar(60)',
+            'interested':'bit default 0'
+        })
+
+
 
     def disconnect(self):
         self.connection.close()
@@ -117,7 +131,6 @@ class database:
         mycursor.execute(sql,tuple(where.values()))
         self.connection.commit()
         return mycursor.lastrowid
-
 
     def selectAll(self,tableName:str):
         '''
