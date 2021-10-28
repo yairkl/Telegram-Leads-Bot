@@ -36,7 +36,7 @@ not_interested ="לא מעוניין"
 semi_interested = "אשמח לשמוע עוד"
 removeMessage = 'הוסרת מרשימת התפוצה.'
 contactMessage = '.ניצור איתך קשר בהקדם'
-moreInfo = 'ליותר פרטים על אודותינו את\ה מוזמן לפנות אל @finderela'
+moreInfo = f'ליותר פרטים על אודותינו את\ה מוזמן לפנות אל {userKeys.info_user}'
 admin_message ='\n'.join([
     'ברוך הבא לממשק הניהול!',
     '/getLeads בכדי לקבל קובץ לידים',
@@ -218,8 +218,6 @@ def main() -> None:
                 MessageHandler(Filters.regex(f'^[0-9]+$')|Filters.document,sendMessages),
             ],
             NO_COMMENT: [
-                # MessageHandler(Filters.location, location),
-                # CommandHandler('skip', skip_location),
             ],
         },
         fallbacks=[CommandHandler('cancel', cancel),CommandHandler('admin', admin)],
